@@ -57,3 +57,6 @@ The model filenames indicate the architecture state and optimization level:
 - INT8: 8-bit Quantization
 
 Example: fr_int8_v01.onnx
+
+[Demo](https://joaosousa1.github.io/Browser-ONNX-Image-Inference/)
+
