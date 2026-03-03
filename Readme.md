@@ -1,5 +1,18 @@
 # Browser ONNX Image Inference
 
+<table>
+  <tr>
+    <td>
+      <img src="test_01.jpg" alt="Original" width="400px">
+      <p align="center">Original</p>
+    </td>
+    <td>
+      <img src="test_result.png" alt="Result" width="400px">
+      <p align="center">Result</p>
+    </td>
+  </tr>
+</table>
+
 ## Project Goal
 
 The main goal of this side project is to perform **object detection of the "Galo de Barcelos" (Rooster of Barcelos) directly in the web browser** using **ONNX models** and **ONNX Runtime Web** - with no server or backend involved at all.
@@ -41,7 +54,7 @@ In this first phase, my goal is simply to get the best results I can squeeze out
 
 ## What Will Be Released
 
-Only the **ONNX models** and the **web inference demo** will be made publicly available in this repository.
+Only the **ONNX models** (https://huggingface.co/joaosousapt/galo_de_barcelos) and the **web inference demo** will be made publicly available in this repository.
 
 I don’t have any plans (for now) to release:
 - the dataset
