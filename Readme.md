@@ -38,11 +38,9 @@ Providing a seamless, client-side experience for:
 ## Approach
 
 1. Collect and annotate a (currently very small) dataset of "Galo de Barcelos" images
-2. Fine-tune **RF-DETR** in two ways:
-   - **Frozen backbone** - faster training, much lower memory usage, usually more stable with few examples
-   - **Unfrozen / full fine-tuning** I try this when the frozen version clearly isn’t enough
+2. Fine-tune **DEIMv2**:
 3. Export the best models to **ONNX** (optimized, simplified, dynamic input shapes)
-4. Build a clean browser demo (**RF-DETR ONNX - Image Inference**) for single-image detection
+4. Build a clean browser demo (**DEIMv2 ONNX - Image Inference**) for single-image detection
 
 ## Current Project Status (Very Early Stage)
 This is a personal side project and it's still in a very early phase.
@@ -62,14 +60,6 @@ I don’t have any plans (for now) to release:
 - the training scripts / workflow
 
 The training part is just my personal experimentation to produce decent ONNX files that can run in the browser.
-
-## Model Naming Convention
-
-The model filenames indicate the architecture state and optimization level:
-- FR (Frozen): Indicates that the backbone weights were frozen during training.
-- INT8: 8-bit Quantization
-
-Example: fr_int8_v01.onnx
 
 [Demo](https://joaosousa1.github.io/Browser-ONNX-Image-Inference/)
 
