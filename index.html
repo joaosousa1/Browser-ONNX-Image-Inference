@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DEIMv2 ONNX - Inference Lab</title>
+    <style>
+        :root {
+            --accent: #00ff00;
+            --bg: #0a0a0a;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--bg);
+            margin: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: white;
+            font-family: sans-serif;
+        }
+
+        /* Global Loading Overlay */
+        #loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        /* Animated Spinner */
+        .spinner {
+            border: 4px solid #333;
+            border-top: 4px solid var(--accent);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Inference Loader */
+        #inference-loader {
+            position: absolute;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10;
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            max-width: 1400px;
+            box-sizing: border-box;
+        }
+
+        .view-box {
+            position: relative;
+            max-width: 640px;
+            aspect-ratio: 1/1;
+            background: #000;
+            border: 2px solid #333;
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            bottom: 10px;
+        }
+
+        video,
+        canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
+        }
+
+        #activate-camera-btn {
+            position: absolute;
+            z-index: 5;
+            padding: 15px 30px;
+            background: white;
+            color: black;
+            border: none;
+            border-radius: 50px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            transition: transform 0.2s;
+        }
+
+        #activate-camera-btn:hover {
+            transform: scale(1.05);
+            background: var(--accent);
+        }
+
+        .result-section {
+            order: 1;
+        }
+
+        .camera-section {
+            order: 2;
+        }
+
+        .controls-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            order: 3;
+            grid-column: 1 / 3;
+        }
+
+        button {
+            background: var(--accent);
+            color: black;
+            border: none;
+            padding: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 8px;
+            text-transform: uppercase;
+            font-size: 14px;
+        }
+
+        #snap-btn {
+            display: none;
+            position: absolute;
+            z-index: 5;
+            padding: 15px 30px;
+            background: white;
+            color: black;
+            border: none;
+            border-radius: 50px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            transition: transform 0.2s;
+            bottom: 10px;
+        }
+
+        #snap-btn:hover {
+            transform: scale(1.05);
+            background: var(--accent);
+        }
+
+        #drop-zone {
+            order: 3;
+            height: 100px;
+            border: 2px dashed #444;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            text-align: center;
+            color: #888;
+            padding: 10px;
+        }
+
+        #status {
+            font-size: 12px;
+            color: var(--accent);
+            margin: 10px 0;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        @media (max-width: 900px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+                align-items: center;
+            }
+
+            .result-section {
+                order: 1;
+            }
+
+            .camera-section {
+                order: 3;
+            }
+
+            .controls-wrapper {
+                order: 2;
+                width: 95vw;
+                max-width: 640px;
+                grid-column: 1;
+            }
+
+            .view-box {
+                width: 95vw;
+            }
+
+            #drop-zone {
+                width: unset;
+            }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+</head>
+
+<body>
+
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <p id="lodingModelNameDisplay" style="margin-top: 15px;">LOADING ...</p>
+    </div>
+
+    <div id="status">WAITING FOR ACTION</div>
+
+    <div class="main-layout">
+        <div class="view-box result-section" id="result">
+            <div id="inference-loader">
+                <div class="spinner"></div>
+                <p style="margin-top:12px; font-size:13px; font-weight:bold; color: var(--accent);">RUNNING INFERENCE...
+                </p>
+            </div>
+            <canvas id="canvas" width="640" height="640"></canvas>
+            <div
+                style="position:absolute; top:12px; left:12px; background:rgba(0,0,0,0.6); padding:4px 10px; font-size:11px; border-radius:4px;">
+                RESULT VIEW</div>
+        </div>
+
+        <div class="controls-wrapper">
+            <div id="drop-zone">📁 Drag & Drop or Click to Upload</div>
+            <input type="file" id="file-input" style="display:none" accept="image/*">
+        </div>
+
+        <div class="view-box camera-section">
+            <button id="activate-camera-btn">Enable Camera</button>
+            <button id="snap-btn">📸 Capture & Analyze</button>
+            <video id="video" autoplay playsinline></video>
+            <div
+                style="position:absolute; top:12px; left:12px; background:rgba(0,0,0,0.6); padding:4px 10px; font-size:11px; border-radius:4px;">
+                WEB CAM FEED</div>
+        </div>
+    </div>
+    <div>
+        <select name="model" id="model">
+        </select>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const status = document.getElementById('status');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const inferenceLoader = document.getElementById('inference-loader');
+        const result = document.getElementById('result');
+        const snapBtn = document.getElementById('snap-btn');
+        const activateCamBtn = document.getElementById('activate-camera-btn');
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const modelSelect = document.getElementById('model');
+        const loadingModelND = document.getElementById('lodingModelNameDisplay');
+
+        let MODELS_LIST = ["https://huggingface.co/joaosousapt/galo_de_barcelos/resolve/main/galo_barcelos_v08_n.onnx"];
+        let MODEL_URL = MODELS_LIST[0];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fillModelsSelectOptions();
+            initModel();
+        });
+
+        let valueSelectedText = MODELS_LIST[0].replace('.onnx', '').replaceAll('_', ' ');
+
+        const INPUT_SIZE = 640;
+        const SCORE_THRESHOLD = 0.80;
+        const MEAN = [0.485, 0.456, 0.406], STD = [0.229, 0.224, 0.225];
+
+        function fillModelsSelectOptions() {
+            const selectEl = document.getElementById('model');
+            selectEl.innerHTML = '';
+
+            MODELS_LIST.forEach((modelUrl, index) => {
+                const option = document.createElement('option');
+                option.value = modelUrl;
+                option.textContent = modelUrl.replace('.onnx', '').replaceAll('_', ' ');
+
+                if (index === 0) {
+                    option.selected = true;
+                }
+
+                selectEl.appendChild(option);
+            });
+        }
+
+        let session;
+
+        modelSelect.addEventListener('change', function () {
+            const valueSelected = this.value;
+            const indice = this.selectedIndex;
+            valueSelectedText = this.options[indice].text;
+
+            if (valueSelected) {
+                MODEL_URL = valueSelected;
+                loadingModelND.innerText = "LOADING " + String(valueSelectedText) + " ...";
+                initModel();
+                console.log("Select model:", valueSelected);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+        });
+
+        async function initModel() {
+            loadingOverlay.style.display = 'flex';
+            try {
+                // loading model
+                session = await ort.InferenceSession.create(MODEL_URL, { executionProviders: ['wasm'] });
+                loadingOverlay.style.display = 'none';
+                status.innerText = "DEIMv2 MODEL READY. ENABLE CAMERA OR UPLOAD IMAGE.";
+            } catch (e) {
+                status.innerText = "ERROR LOADING MODEL";
+                console.error(e);
+            }
+        }
+
+        activateCamBtn.onclick = async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: { ideal: 1280 }, height: { ideal: 1280 }, facingMode: "environment" }
+                });
+                video.srcObject = stream;
+                activateCamBtn.style.display = 'none';
+                snapBtn.style.display = 'block';
+                status.innerText = "CAMERA ACTIVE";
+            } catch (e) {
+                alert("Camera access denied or error.");
+            }
+        };
+
+        function drawBaseImage(source) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const ratio = Math.min(canvas.width / source.width, canvas.height / source.height);
+            const nw = source.width * ratio;
+            const nh = source.height * ratio;
+            const offX = (canvas.width - nw) / 2;
+            const offY = (canvas.height - nh) / 2;
+
+            window.lastImageDims = { nw, nh, offX, offY };
+            ctx.drawImage(source, offX, offY, nw, nh);
+        }
+
+        async function processImage(source) {
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+
+            result.style.display = 'flex';
+            inferenceLoader.style.display = 'flex';
+            status.innerText = "PROCESSING WITH DEIMv2...";
+
+            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "black";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const ratio = Math.min(canvas.width / source.width, canvas.height / source.height);
+            const nw = source.width * ratio;
+            const nh = source.height * ratio;
+            const offX = (canvas.width - nw) / 2;
+            const offY = (canvas.height - nh) / 2;
+            ctx.drawImage(source, offX, offY, nw, nh);
+
+            try {
+                const inputTensor = prepareInput(source);
+                const feeds = { [session.inputNames[0]]: inputTensor };
+
+                if (session.inputNames.includes('orig_target_sizes')) {
+                    feeds['orig_target_sizes'] = new ort.Tensor('int64', BigInt64Array.from([BigInt(INPUT_SIZE), BigInt(INPUT_SIZE)]), [1, 2]);
+                }
+
+                let output;
+                try {
+                    output = await session.run(feeds);
+                } catch (runError) {
+                    if (session.inputNames.includes('orig_target_sizes')) {
+                        console.warn("Type mismatch detected in input. Trying fallback to int32...");
+                        feeds['orig_target_sizes'] = new ort.Tensor('int32', Int32Array.from([INPUT_SIZE, INPUT_SIZE]), [1, 2]);
+                        output = await session.run(feeds);
+                    } else {
+                        throw runError;
+                    }
+                }
+
+                drawDetections(output, nw, nh, offX, offY);
+
+                ctx.shadowColor = "gray";
+                ctx.shadowBlur = 1;
+                ctx.shadowOffsetX = 0.5;
+                ctx.shadowOffsetY = 0.5;
+                ctx.fillStyle = "white";
+                ctx.fillText(valueSelectedText, 10, canvas.height - 10);
+
+                status.innerText = "(file: " + String(valueSelectedText) + ")";
+            } catch (err) {
+                console.error(err);
+                status.innerText = "INFERENCE ERROR";
+            } finally {
+                inferenceLoader.style.display = 'none';
+            }
+        }
+
+        function prepareInput(img) {
+            const tmp = document.createElement('canvas');
+            tmp.width = INPUT_SIZE; tmp.height = INPUT_SIZE;
+            const tctx = tmp.getContext('2d');
+
+            tctx.drawImage(img, 0, 0, INPUT_SIZE, INPUT_SIZE);
+
+            const imgData = tctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE).data;
+            const data = new Float32Array(3 * INPUT_SIZE * INPUT_SIZE);
+
+            for (let i = 0; i < INPUT_SIZE * INPUT_SIZE; i++) {
+                data[i] = imgData[i * 4] / 255.0;                             
+                data[i + INPUT_SIZE * INPUT_SIZE] = imgData[i * 4 + 1] / 255.0; 
+                data[i + 2 * INPUT_SIZE * INPUT_SIZE] = imgData[i * 4 + 2] / 255.0; 
+            }
+            return new ort.Tensor('float32', data, [1, 3, INPUT_SIZE, INPUT_SIZE]);
+        }
+
+        function drawDetections(output, nw, nh, offX, offY) {
+            let boxesRaw = null;
+            let scoresRaw = null;
+            let logitsRaw = null;
+
+            for (const name of session.outputNames) {
+                const lower = name.toLowerCase();
+                if (lower.includes('box')) boxesRaw = output[name].data;
+                else if (lower.includes('score')) scoresRaw = output[name].data;
+                else if (lower.includes('logit') || lower.includes('pred')) logitsRaw = output[name].data;
+            }
+
+            if (!boxesRaw || (!scoresRaw && !logitsRaw)) {
+                const keys = session.outputNames;
+                if (keys.length >= 3) {
+                    const boxKey = keys.find(k => output[k].data.length === 1200);
+                    if (boxKey) boxesRaw = output[boxKey].data;
+
+                    const scoreKey = keys.find(k => k !== boxKey && output[k].data instanceof Float32Array && output[k].data.length === 300);
+                    if (scoreKey) scoresRaw = output[scoreKey].data;
+                } else {
+                    boxesRaw = output[keys[0]].data;
+                    logitsRaw = output[keys[1]].data;
+                }
+            }
+
+            let count = 0;
+            const numQueries = 300;
+
+            if (scoresRaw && boxesRaw) {
+                for (let i = 0; i < numQueries; i++) {
+                    const score = Number(scoresRaw[i]);
+
+                    if (score > SCORE_THRESHOLD) {
+                        const x1 = Number(boxesRaw[i * 4 + 0]);
+                        const y1 = Number(boxesRaw[i * 4 + 1]);
+                        const x2 = Number(boxesRaw[i * 4 + 2]);
+                        const y2 = Number(boxesRaw[i * 4 + 3]);
+
+                        const x = (x1 / INPUT_SIZE) * nw + offX;
+                        const y = (y1 / INPUT_SIZE) * nh + offY;
+                        const w = ((x2 - x1) / INPUT_SIZE) * nw;
+                        const h = ((y2 - y1) / INPUT_SIZE) * nh;
+
+                        drawBoxAndLabel(x, y, w, h, score);
+                        count++;
+                    }
+                }
+            }
+            else if (logitsRaw && boxesRaw) {
+                const numClasses = Math.round(logitsRaw.length / numQueries);
+                for (let i = 0; i < numQueries; i++) {
+                    let maxScore = -Infinity;
+                    for (let c = 0; c < numClasses; c++) {
+                        const logit = Number(logitsRaw[i * numClasses + c]);
+                        const score = 1 / (1 + Math.exp(-logit));
+                        if (score > maxScore) maxScore = score;
+                    }
+
+                    if (maxScore > SCORE_THRESHOLD) {
+                        const cx = Number(boxesRaw[i * 4 + 0]);
+                        const cy = Number(boxesRaw[i * 4 + 1]);
+                        const bw = Number(boxesRaw[i * 4 + 2]);
+                        const bh = Number(boxesRaw[i * 4 + 3]);
+
+                        const x = (cx - bw / 2) * nw + offX;
+                        const y = (cy - bh / 2) * nh + offY;
+                        const w = bw * nw;
+                        const h = bh * nh;
+
+                        drawBoxAndLabel(x, y, w, h, maxScore);
+                        count++;
+                    }
+                }
+            }
+
+            status.innerText = `FOUND: ${count} OBJECTS`;
+        }
+
+        function drawBoxAndLabel(x, y, w, h, score) {
+            ctx.strokeStyle = "#00ff00";
+            ctx.lineWidth = 3;
+            ctx.strokeRect(x, y, w, h);
+
+            const label = `Galo de Barcelos ${(score * 100).toFixed(0)}%`;
+            ctx.font = "bold 12px sans-serif";
+            const tw = ctx.measureText(label).width;
+            ctx.fillStyle = "rgba(0, 255, 0, 0.85)";
+            ctx.fillRect(x, y, tw + 10, 20);
+            ctx.fillStyle = "black";
+            ctx.fillText(label, x + 5, y + 15);
+        }
+
+        snapBtn.onclick = () => {
+            const captureCanvas = document.createElement('canvas');
+            captureCanvas.width = video.videoWidth;
+            captureCanvas.height = video.videoHeight;
+            captureCanvas.getContext('2d').drawImage(video, 0, 0);
+            drawBaseImage(captureCanvas);
+            processImage(captureCanvas);
+        };
+
+        dropZone.onclick = () => fileInput.click();
+        fileInput.onchange = (e) => { if (e.target.files.length) handleFile(e.target.files[0]); };
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.style.borderColor = "var(--accent)"; };
+        dropZone.ondragleave = () => { dropZone.style.borderColor = "#444"; };
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            if (e.dataTransfer.files.length) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        };
+
+        function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    drawBaseImage(img);
+                    processImage(img);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        window.addEventListener("dragover", function (e) { e.preventDefault(); }, false);
+        window.addEventListener("drop", function (e) { e.preventDefault(); }, false);
+    </script>
+</body>
+
+</html>
