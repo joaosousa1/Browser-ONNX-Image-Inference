@@ -38,9 +38,9 @@ Providing a seamless, client-side experience for:
 ## Approach
 
 1. Collect and annotate a (currently very small) dataset of "Galo de Barcelos" images
-2. Fine-tune **DEIMv2**:
+2. Fine-tune **DEIM**:
 3. Export the best models to **ONNX** (optimized, simplified, dynamic input shapes)
-4. Build a clean browser demo (**DEIMv2 ONNX - Image Inference**) for single-image detection
+4. Build a clean browser demo (**DEIM ONNX - Image Inference**) for single-image detection
 
 ## Current Project Status (Very Early Stage)
 This is a personal side project and it's still in a very early phase.
