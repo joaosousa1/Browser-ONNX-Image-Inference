@@ -293,7 +293,7 @@
             initModel();
         });
 
-        let valueSelectedText = MODELS_LIST[0].replace('.onnx', '').replaceAll('_', ' ');
+        let valueSelectedText = MODELS_LIST[0].replace('.onnx', '').replaceAll('_', ' ';
 
         const INPUT_SIZE = 640;
         const SCORE_THRESHOLD = 0.80;
@@ -306,7 +306,7 @@
             MODELS_LIST.forEach((modelUrl, index) => {
                 const option = document.createElement('option');
                 option.value = modelUrl;
-                option.textContent = modelUrl.replace('.onnx', '').replaceAll('_', ' ');
+                option.textContent = modelUrl.replace('.onnx', '').split('/').pop();
 
                 if (index === 0) {
                     option.selected = true;
